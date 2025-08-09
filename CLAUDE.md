@@ -1,36 +1,50 @@
 # Claude Development Guidelines
 
-## Git Workflow
-- Always use `git add .` to stage changes
-- Always use `git commit -m "descriptive message"` to commit changes
-- Always use `git push origin main` to push changes to remote repository
+## MANDATORY Git Workflow
+**ALWAYS execute these commands after making changes:**
+1. `git add .` - Stage all changes
+2. `git commit -m "descriptive message"` - Commit with clear message
+3. `git push origin main` - Push to GitHub repository
 
 ## Development Principles
-- NO false data or placeholders - use real data only
-- NO mock data in production code
-- Always fetch and work with actual live data from sources
+- **NEVER use mock/fake/placeholder data** - Only real data from actual sources
+- **NO test data generators** - Always scrape/fetch real data
+- **DELETE any mock data files immediately**
+- Always work with production-ready, real data
 
-## Gemini CLI Integration
-- Actively use Gemini CLI for AI assistance
-- Access Gemini by typing `gemini` in terminal
-- Use Gemini aggressively for:
-  - Code optimization suggestions
-  - Bug fixing assistance
-  - Architecture decisions
-  - Data analysis insights
-  - Performance improvements
+## Gemini CLI Usage (REQUIRED)
+**Aggressively use Gemini CLI for all development tasks:**
 
-## Commands to Run
-When making changes to the codebase:
-1. `git add .`
-2. `git commit -m "descriptive commit message"`
-3. `git push origin main`
+### How to use Gemini:
+```bash
+echo "your question or request" | gemini
+```
 
-For AI assistance:
-- `gemini "your question or request"`
+### Use Gemini for:
+- Debugging scraper issues: `echo "debug puppeteer scraper error: [error]" | gemini`
+- Optimization: `echo "optimize this JavaScript code: [code]" | gemini`
+- Architecture decisions: `echo "best practice for [task]" | gemini`
+- Data analysis: `echo "analyze this data pattern: [data]" | gemini`
+- Performance improvements: `echo "improve performance of [function]" | gemini`
 
-## Project-Specific Requirements
-- Scrape real data from p-world.co.jp
-- No mock data generators in production
-- Always validate scraped data
-- Use Gemini for scraping strategy improvements
+## Pachinko Project Specific
+- **Target URL**: https://www.p-world.co.jp/_machine/dedama.cgi?hall_id=019662&type=pachi
+- **Required Data Fields**: 台番号, 回転数, 累計スタート, 総大当り, 初当り, 確変当り, 大当り確率, 初当り確率, 最大持ち玉, 前日最終スタート
+- **Update Frequency**: Every hour via cron job
+- **Dashboard**: http://localhost:3000
+
+## Development Workflow
+1. Make changes to code
+2. Use Gemini to validate/optimize: `echo "review this code: [code]" | gemini`
+3. Test with real data only
+4. `git add .`
+5. `git commit -m "feat: description of change"`
+6. `git push origin main`
+
+## Commit Message Format
+- `feat:` - New feature
+- `fix:` - Bug fix
+- `refactor:` - Code refactoring
+- `docs:` - Documentation
+- `style:` - Formatting changes
+- `perf:` - Performance improvements
