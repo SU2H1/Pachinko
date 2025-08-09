@@ -19,6 +19,7 @@ taskkill //F //PID [PID_NUMBER]
 - **DELETE any mock data files immediately**
 - Always work with production-ready, real data
 - **ALWAYS terminate running localhost processes**
+- **STOP ASKING QUESTIONS** - Just accomplish the task by finding solutions
 
 ## Gemini CLI Usage (REQUIRED)
 **Aggressively use Gemini CLI for all development tasks:**

@@ -161,9 +161,39 @@ class PachinkoScraper {
         try {
             await this.initialize();
             
-            console.log('Step 1: Navigating to pachinko data page...');
-            await this.page.goto(baseUrl, { waitUntil: 'networkidle2' });
+            console.log('Step 1: Finding pachinko machine list page...');
+            
+            // Try to find the correct URL by navigating from main site
+            await this.page.goto('https://www.p-world.co.jp/', { waitUntil: 'networkidle2' });
             await new Promise(resolve => setTimeout(resolve, 3000));
+            
+            // Look for pachinko search or machine list links
+            const machineListURL = await this.page.evaluate(() => {
+                const allLinks = document.querySelectorAll('a');
+                for (const link of allLinks) {
+                    const href = link.href;
+                    const text = link.textContent;
+                    
+                    // Look for URLs that might contain machine lists
+                    if (href.includes('search') && (href.includes('pachi') || text.includes('パチンコ'))) {
+                        return href;
+                    }
+                    if (href.includes('machine') || href.includes('kisyu')) {
+                        return href;
+                    }
+                }
+                return null;
+            });
+            
+            if (machineListURL) {
+                console.log('Found potential machine list URL:', machineListURL);
+                await this.page.goto(machineListURL, { waitUntil: 'networkidle2' });
+                await new Promise(resolve => setTimeout(resolve, 3000));
+            } else {
+                console.log('Using provided URL:', baseUrl);
+                await this.page.goto(baseUrl, { waitUntil: 'networkidle2' });
+                await new Promise(resolve => setTimeout(resolve, 3000));
+            }
             
             // Step 2: Click on "機種名で探す" button
             console.log('Step 2: Looking for 機種名で探す button...');
@@ -234,8 +264,7 @@ class PachinkoScraper {
                 await new Promise(resolve => setTimeout(resolve, 5000));
                 await this.page.screenshot({ path: 'after-search-click.png' });
             } else {
-                console.log('❌ Could not find search button');
-                return [];
+                console.log('⚠️ No search button found, checking current page for machines...');
             }
             
             // Step 3: Extract machine list from the results
@@ -243,9 +272,40 @@ class PachinkoScraper {
             const machines = await this.extractMachineList();
             console.log(`Found ${machines.length} machines in list`);
             
+            // If no machines found, try alternative discovery methods
             if (machines.length === 0) {
-                console.log('No machines found, taking screenshot for debugging');
+                console.log('Step 3b: Trying alternative machine discovery...');
+                
+                // Try different URLs that might have machine data
+                const alternativeURLs = [
+                    'https://www.p-world.co.jp/kanagawa/',
+                    'https://www.p-world.co.jp/search/pachi',
+                    'https://www.p-world.co.jp/_machine/',
+                    'https://www.p-world.co.jp/list/'
+                ];
+                
+                for (const altURL of alternativeURLs) {
+                    console.log(`Trying alternative URL: ${altURL}`);
+                    try {
+                        await this.page.goto(altURL, { waitUntil: 'networkidle2' });
+                        await new Promise(resolve => setTimeout(resolve, 3000));
+                        
+                        const altMachines = await this.extractMachineList();
+                        if (altMachines.length > 0) {
+                            console.log(`✅ Found ${altMachines.length} machines at ${altURL}`);
+                            machines.push(...altMachines);
+                            break;
+                        }
+                    } catch (error) {
+                        console.log(`Failed to access ${altURL}`);
+                    }
+                }
+            }
+            
+            if (machines.length === 0) {
+                console.log('📸 Taking screenshot for debugging');
                 await this.page.screenshot({ path: 'no-machines-found.png' });
+                console.log('❌ No real machines found - returning empty results');
                 return [];
             }
             
