@@ -289,49 +289,63 @@ class PachinkoScraper {
         try {
             const machines = await this.page.evaluate(() => {
                 const machineLinks = [];
-                const uniqueUrls = new Set();
                 
-                // Look for all links on the page
-                const allLinks = document.querySelectorAll('a');
-                allLinks.forEach(link => {
-                    const href = link.href;
-                    const text = link.textContent.trim();
-                    
-                    // Filter for machine links (usually contain machine names)
-                    if (href && text && !uniqueUrls.has(href)) {
-                        // Look for patterns that suggest pachinko machine names
-                        const isPachinkoMachine = (
-                            text.match(/^[PCR][A-Za-z0-9\u3040-\u309F\u30A0-\u30FF\u4E00-\u9FAF\s\-・\u0020]+/) ||
-                            text.includes('パチンコ') ||
-                            text.includes('スロット') ||
-                            (text.length > 5 && text.length < 50)
-                        );
+                // Use the provided xpath: /html/body/div/article/section/ul/li[1]
+                // First, let's get all list items in the section
+                const listItems = document.querySelectorAll('html > body > div > article > section > ul > li');
+                
+                console.log(`Found ${listItems.length} list items using xpath structure`);
+                
+                listItems.forEach((li, index) => {
+                    const link = li.querySelector('a');
+                    if (link) {
+                        const text = link.textContent.trim();
+                        const href = link.href;
                         
-                        // Exclude navigation and system links
-                        const isNotNavigation = (
-                            !text.includes('戻る') &&
-                            !text.includes('次へ') &&
-                            !text.includes('前へ') &&
-                            !text.includes('ホール') &&
-                            !text.includes('店舗') &&
-                            !href.includes('javascript:') &&
-                            !href.includes('mailto:')
-                        );
-                        
-                        if (isPachinkoMachine && isNotNavigation) {
-                            uniqueUrls.add(href);
+                        if (text && href) {
                             machineLinks.push({
                                 name: text,
                                 url: href
                             });
+                            console.log(`Machine ${index + 1}: ${text}`);
+                        }
+                    } else {
+                        // If no link in li, check if li itself contains machine name
+                        const text = li.textContent.trim();
+                        if (text && text.length > 3) {
+                            machineLinks.push({
+                                name: text,
+                                url: window.location.href // Use current URL as fallback
+                            });
+                            console.log(`Machine ${index + 1} (no link): ${text}`);
                         }
                     }
                 });
                 
-                console.log(`Found ${machineLinks.length} potential machine links`);
+                // Also try alternative selectors based on the xpath pattern
+                if (machineLinks.length === 0) {
+                    console.log('Trying alternative selectors...');
+                    
+                    // Try section ul li pattern
+                    const altListItems = document.querySelectorAll('section ul li');
+                    altListItems.forEach((li, index) => {
+                        const text = li.textContent.trim();
+                        const link = li.querySelector('a');
+                        
+                        if (text && text.length > 3) {
+                            machineLinks.push({
+                                name: text,
+                                url: link ? link.href : window.location.href
+                            });
+                            console.log(`Alt Machine ${index + 1}: ${text}`);
+                        }
+                    });
+                }
+                
                 return machineLinks;
             });
             
+            console.log(`Extracted ${machines.length} real machine names from xpath`);
             return machines;
         } catch (error) {
             console.error('Error extracting machine list:', error);

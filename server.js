@@ -17,7 +17,7 @@ let cachedData = null;
 let lastScrapedTime = null;
 let isScrapingInProgress = false;
 
-// Function to perform scraping
+// Function to perform scraping - REAL DATA ONLY
 async function performScraping() {
     if (isScrapingInProgress) {
         console.log('Scraping already in progress, skipping...');
@@ -28,24 +28,33 @@ async function performScraping() {
     const scraper = new PachinkoScraper();
     
     try {
-        console.log('Starting real data scrape at', new Date().toISOString());
+        console.log('🎰 Starting REAL data scrape at', new Date().toISOString());
         const url = 'https://www.p-world.co.jp/_machine/dedama.cgi?hall_id=019662&type=pachi';
-        const data = await scraper.scrapeAllData(url);
         
-        if (data && data.length > 0) {
-            cachedData = data;
+        console.log('📍 Target URL:', url);
+        const realData = await scraper.scrapeAllData(url);
+        
+        if (realData && realData.length > 0) {
+            cachedData = realData;
             lastScrapedTime = new Date();
-            console.log('Real data scraped successfully');
+            console.log('✅ REAL data scraped successfully');
+            console.log(`📊 Loaded ${realData.length} real machines with actual data`);
+            
+            // Log the machine names we found
+            realData.forEach((machine, index) => {
+                console.log(`${index + 1}. ${machine.machineName} (${machine.data.length} dates)`);
+            });
         } else {
-            console.log('No data scraped - checking site structure');
+            console.log('❌ No real data scraped - check site structure');
         }
         
-        return data;
+        return realData;
     } catch (error) {
-        console.error('Scraping failed:', error);
-        return cachedData;
+        console.error('❌ Real scraping failed:', error);
+        return []; // Return empty array instead of cached placeholder data
     } finally {
         isScrapingInProgress = false;
+        await scraper.close();
     }
 }
 
