@@ -290,15 +290,33 @@ class PachinkoScraper {
             const machines = await this.page.evaluate(() => {
                 const machineLinks = [];
                 
-                // Use the provided xpath: /html/body/div/article/section/ul/li[1]
-                // First, let's get all list items in the section
-                const listItems = document.querySelectorAll('html > body > div > article > section > ul > li');
+                // Use the exact CSS path: html body#SearchListPachinko div#Prime-Column article section.list1col ul.m_list li.Pachinko a
+                console.log('🎯 Using exact CSS selector for pachinko machine links...');
                 
-                console.log(`Found ${listItems.length} list items using xpath structure`);
+                const pachinkoLinks = document.querySelectorAll('body#SearchListPachinko div#Prime-Column article section.list1col ul.m_list li.Pachinko a');
+                console.log(`Found ${pachinkoLinks.length} pachinko links using exact CSS selector`);
                 
-                listItems.forEach((li, index) => {
-                    const link = li.querySelector('a');
-                    if (link) {
+                pachinkoLinks.forEach((link, index) => {
+                    const machineName = link.textContent.trim();
+                    const machineUrl = link.href;
+                    
+                    if (machineName && machineUrl) {
+                        machineLinks.push({
+                            name: machineName,
+                            url: machineUrl
+                        });
+                        console.log(`✅ Pachinko ${index + 1}: ${machineName} -> ${machineUrl}`);
+                    }
+                });
+                
+                // If exact selector doesn't work, try progressive fallbacks
+                if (machineLinks.length === 0) {
+                    console.log('🔄 Trying fallback: ul.m_list li.Pachinko a');
+                    
+                    const fallbackLinks = document.querySelectorAll('ul.m_list li.Pachinko a');
+                    console.log(`Found ${fallbackLinks.length} links with fallback selector`);
+                    
+                    fallbackLinks.forEach((link, index) => {
                         const text = link.textContent.trim();
                         const href = link.href;
                         
@@ -307,37 +325,28 @@ class PachinkoScraper {
                                 name: text,
                                 url: href
                             });
-                            console.log(`Machine ${index + 1}: ${text}`);
+                            console.log(`🔄 Fallback ${index + 1}: ${text}`);
                         }
-                    } else {
-                        // If no link in li, check if li itself contains machine name
-                        const text = li.textContent.trim();
-                        if (text && text.length > 3) {
-                            machineLinks.push({
-                                name: text,
-                                url: window.location.href // Use current URL as fallback
-                            });
-                            console.log(`Machine ${index + 1} (no link): ${text}`);
-                        }
-                    }
-                });
+                    });
+                }
                 
-                // Also try alternative selectors based on the xpath pattern
+                // Even broader fallback
                 if (machineLinks.length === 0) {
-                    console.log('Trying alternative selectors...');
+                    console.log('🔄 Trying broader fallback: li.Pachinko a');
                     
-                    // Try section ul li pattern
-                    const altListItems = document.querySelectorAll('section ul li');
-                    altListItems.forEach((li, index) => {
-                        const text = li.textContent.trim();
-                        const link = li.querySelector('a');
+                    const broadLinks = document.querySelectorAll('li.Pachinko a');
+                    console.log(`Found ${broadLinks.length} links with broad selector`);
+                    
+                    broadLinks.forEach((link, index) => {
+                        const text = link.textContent.trim();
+                        const href = link.href;
                         
-                        if (text && text.length > 3) {
+                        if (text && href) {
                             machineLinks.push({
                                 name: text,
-                                url: link ? link.href : window.location.href
+                                url: href
                             });
-                            console.log(`Alt Machine ${index + 1}: ${text}`);
+                            console.log(`🔄 Broad ${index + 1}: ${text}`);
                         }
                     });
                 }
@@ -345,10 +354,10 @@ class PachinkoScraper {
                 return machineLinks;
             });
             
-            console.log(`Extracted ${machines.length} real machine names from xpath`);
+            console.log(`✅ Extracted ${machines.length} REAL machine links using CSS selector`);
             return machines;
         } catch (error) {
-            console.error('Error extracting machine list:', error);
+            console.error('❌ Error extracting machine list:', error);
             return [];
         }
     }
