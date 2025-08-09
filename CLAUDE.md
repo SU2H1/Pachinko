@@ -38,23 +38,32 @@ echo "your question or request" | gemini
 ## Project Files Structure
 ### Core Files:
 - `server.js` - Express API server with real-time scraping
-- `scraper.js` - Puppeteer scraper for p-world.co.jp
+- `scraper.js` - Enhanced Puppeteer scraper with 機種名で探す button interaction
 - `url-crawler.js` - URL content analysis tool
-- `public/index.html` - Dashboard interface
-- `public/styles.css` - Dashboard styling
-- `public/dashboard.js` - Dashboard functionality
+- `public/index.html` - Dashboard with trend analysis tab
+- `public/styles.css` - Responsive styling with trend components
+- `public/dashboard.js` - Interactive dashboard with line graphs
 
 ### Analysis Files:
 - `url-analysis-report.json` - Site structure analysis
 - `url-analysis-screenshot.png` - Visual site inspection
 
-## Pachinko Project Discoveries
+## Pachinko Project Discoveries & Features
 - **Target URL**: https://www.p-world.co.jp/_machine/dedama.cgi?hall_id=019662&type=pachi
 - **Site Type**: Search interface for pachinko data (not direct data page)
-- **Required Interaction**: Must use search buttons: 機種名で探す or 台番号で探す
+- **Scraper Enhancement**: ✅ Automatically clicks 機種名で探す button
+- **Date Selection**: ✅ Extracts historical data from available date options
 - **Required Data Fields**: 台番号, 回転数, 累計スタート, 総大当り, 初当り, 確変当り, 大当り確率, 初当り確率, 最大持ち玉, 前日最終スタート
 - **Update Frequency**: Every hour via cron job
 - **Dashboard**: http://localhost:3000
+
+### New Dashboard Features:
+- **📊 Trend Analysis Tab**: Line graphs for machine statistics over time
+- **📅 Period Controls**: 7, 14, 30, or 60-day analysis periods
+- **🎰 Machine Selection**: Individual machine or all machines comparison
+- **📈 Metric Selection**: Total hits, first hits, spins, hit rate analysis
+- **📊 Trend Statistics**: Average, maximum, change rate, and direction indicators
+- **📱 Responsive Design**: Mobile-optimized interface
 
 ## URL Analysis Results
 ```json
