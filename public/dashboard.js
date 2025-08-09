@@ -514,96 +514,166 @@ function updateTrendChart() {
 }
 
 function generateTrendData(selectedMachine, selectedMetric, periodDays) {
-    const labels = [];
-    const datasets = [];
-    
     if (!currentData || currentData.length === 0) {
         return { labels: [], datasets: [] };
     }
     
-    // Create date range for the period
-    const endDate = new Date();
-    const startDate = new Date();
-    startDate.setDate(endDate.getDate() - periodDays);
+    // Collect all available dates from the data
+    const allDates = new Set();
+    currentData.forEach(machine => {
+        if (machine.data && Array.isArray(machine.data)) {
+            machine.data.forEach(dateEntry => {
+                if (dateEntry.date) {
+                    allDates.add(dateEntry.date);
+                }
+            });
+        }
+    });
     
-    // Generate labels for date range
-    for (let d = new Date(startDate); d <= endDate; d.setDate(d.getDate() + 1)) {
-        labels.push(d.toLocaleDateString('ja-JP'));
+    // Sort dates and limit to the specified period
+    const sortedDates = Array.from(allDates).sort().slice(-periodDays);
+    
+    if (sortedDates.length === 0) {
+        // Fallback: create a date range if no dates in data
+        const labels = [];
+        const endDate = new Date();
+        const startDate = new Date();
+        startDate.setDate(endDate.getDate() - periodDays);
+        
+        for (let d = new Date(startDate); d <= endDate; d.setDate(d.getDate() + 1)) {
+            labels.push(d.toLocaleDateString('ja-JP'));
+        }
+        
+        return generateSimulatedTrendData(selectedMachine, selectedMetric, labels);
     }
     
+    const labels = sortedDates.map(date => {
+        try {
+            return new Date(date).toLocaleDateString('ja-JP');
+        } catch {
+            return date; // Use original date string if parsing fails
+        }
+    });
+    
+    const datasets = [];
+    
     if (selectedMachine) {
-        // Single machine trend
+        // Single machine trend using real date data
         const machine = currentData.find(m => m.machineName === selectedMachine);
         if (machine && machine.data && Array.isArray(machine.data)) {
-            // Check if machine.data contains date-based data
-            const hasDateData = machine.data.some(entry => entry.date);
-            
-            if (hasDateData) {
-                // Use actual date-based data
-                const values = labels.map(label => {
-                    const dateEntry = machine.data.find(entry => 
-                        entry.date && new Date(entry.date).toLocaleDateString('ja-JP') === label
-                    );
-                    
-                    if (dateEntry && dateEntry.data) {
-                        return calculateMetricValue(dateEntry.data, selectedMetric);
-                    }
-                    
-                    return null;
-                });
-                
-                datasets.push({
-                    label: machine.machineName,
-                    data: values,
-                    borderColor: 'rgba(102, 126, 234, 1)',
-                    backgroundColor: 'rgba(102, 126, 234, 0.1)',
-                    tension: 0.4,
-                    fill: true
-                });
-            } else {
-                // Generate simulated trend data based on current data
-                const baseValue = calculateMetricValue(machine.data, selectedMetric);
-                const values = labels.map((label, index) => {
-                    // Add some variation to simulate trend
-                    const variation = (Math.sin(index * 0.3) + Math.random() - 0.5) * 0.1;
-                    return Math.max(0, Math.round(baseValue * (1 + variation)));
-                });
-                
-                datasets.push({
-                    label: machine.machineName,
-                    data: values,
-                    borderColor: 'rgba(102, 126, 234, 1)',
-                    backgroundColor: 'rgba(102, 126, 234, 0.1)',
-                    tension: 0.4,
-                    fill: true
-                });
-            }
-        }
-    } else {
-        // Multiple machines trend
-        currentData.slice(0, 5).forEach((machine, index) => {
-            const colors = [
-                'rgba(102, 126, 234, 1)',
-                'rgba(118, 75, 162, 1)',
-                'rgba(255, 99, 132, 1)',
-                'rgba(54, 162, 235, 1)',
-                'rgba(255, 206, 86, 1)'
-            ];
-            
-            const baseValue = calculateMetricValue(machine.data, selectedMetric);
-            const values = labels.map((label, labelIndex) => {
-                const variation = (Math.sin(labelIndex * 0.3 + index) + Math.random() - 0.5) * 0.15;
-                return Math.max(0, Math.round(baseValue * (1 + variation)));
+            const values = sortedDates.map(date => {
+                const dateEntry = machine.data.find(entry => entry.date === date);
+                if (dateEntry && dateEntry.data) {
+                    return calculateMetricValue(dateEntry.data, selectedMetric);
+                }
+                return null; // null for missing dates
             });
             
             datasets.push({
                 label: machine.machineName,
                 data: values,
-                borderColor: colors[index % colors.length],
-                backgroundColor: colors[index % colors.length].replace('1)', '0.1)'),
+                borderColor: 'rgba(102, 126, 234, 1)',
+                backgroundColor: 'rgba(102, 126, 234, 0.1)',
                 tension: 0.4,
-                fill: false
+                fill: true,
+                spanGaps: true // Connect lines across null values
             });
+        }
+    } else {
+        // Multiple machines trend using real date data
+        const colors = [
+            'rgba(102, 126, 234, 1)',
+            'rgba(118, 75, 162, 1)',
+            'rgba(255, 99, 132, 1)',
+            'rgba(54, 162, 235, 1)',
+            'rgba(255, 206, 86, 1)'
+        ];
+        
+        currentData.slice(0, 5).forEach((machine, index) => {
+            if (machine.data && Array.isArray(machine.data)) {
+                const values = sortedDates.map(date => {
+                    const dateEntry = machine.data.find(entry => entry.date === date);
+                    if (dateEntry && dateEntry.data) {
+                        return calculateMetricValue(dateEntry.data, selectedMetric);
+                    }
+                    return null;
+                });
+                
+                // Only add if there's some data
+                if (values.some(v => v !== null)) {
+                    datasets.push({
+                        label: machine.machineName,
+                        data: values,
+                        borderColor: colors[index % colors.length],
+                        backgroundColor: colors[index % colors.length].replace('1)', '0.1)'),
+                        tension: 0.4,
+                        fill: false,
+                        spanGaps: true
+                    });
+                }
+            }
+        });
+    }
+    
+    return { labels, datasets };
+}
+
+function generateSimulatedTrendData(selectedMachine, selectedMetric, labels) {
+    const datasets = [];
+    
+    if (selectedMachine) {
+        const machine = currentData.find(m => m.machineName === selectedMachine);
+        if (machine && machine.data && Array.isArray(machine.data)) {
+            // Use first available date's data as baseline
+            const baseData = machine.data[0]?.data;
+            if (baseData) {
+                const baseValue = calculateMetricValue(baseData, selectedMetric);
+                const values = labels.map((label, index) => {
+                    const variation = (Math.sin(index * 0.3) + Math.random() - 0.5) * 0.1;
+                    return Math.max(0, Math.round(baseValue * (1 + variation)));
+                });
+                
+                datasets.push({
+                    label: machine.machineName + ' (推定)',
+                    data: values,
+                    borderColor: 'rgba(102, 126, 234, 0.7)',
+                    backgroundColor: 'rgba(102, 126, 234, 0.1)',
+                    tension: 0.4,
+                    fill: true,
+                    borderDash: [5, 5] // Dashed line to indicate simulation
+                });
+            }
+        }
+    } else {
+        const colors = [
+            'rgba(102, 126, 234, 0.7)',
+            'rgba(118, 75, 162, 0.7)',
+            'rgba(255, 99, 132, 0.7)',
+            'rgba(54, 162, 235, 0.7)',
+            'rgba(255, 206, 86, 0.7)'
+        ];
+        
+        currentData.slice(0, 5).forEach((machine, index) => {
+            if (machine.data && Array.isArray(machine.data)) {
+                const baseData = machine.data[0]?.data;
+                if (baseData) {
+                    const baseValue = calculateMetricValue(baseData, selectedMetric);
+                    const values = labels.map((label, labelIndex) => {
+                        const variation = (Math.sin(labelIndex * 0.3 + index) + Math.random() - 0.5) * 0.15;
+                        return Math.max(0, Math.round(baseValue * (1 + variation)));
+                    });
+                    
+                    datasets.push({
+                        label: machine.machineName + ' (推定)',
+                        data: values,
+                        borderColor: colors[index % colors.length],
+                        backgroundColor: colors[index % colors.length].replace('0.7)', '0.1)'),
+                        tension: 0.4,
+                        fill: false,
+                        borderDash: [5, 5]
+                    });
+                }
+            }
         });
     }
     

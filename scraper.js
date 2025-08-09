@@ -161,59 +161,119 @@ class PachinkoScraper {
         try {
             await this.initialize();
             
-            console.log('Navigating to pachinko data page...');
+            console.log('Step 1: Navigating to pachinko data page...');
             await this.page.goto(baseUrl, { waitUntil: 'networkidle2' });
             await new Promise(resolve => setTimeout(resolve, 3000));
             
-            // Click on "機種名で探す" button
-            console.log('Clicking on 機種名で探す button...');
+            // Step 2: Click on "機種名で探す" button
+            console.log('Step 2: Looking for 機種名で探す button...');
+            
+            // First, let's see what buttons/elements are available
+            const pageElements = await this.page.evaluate(() => {
+                const elements = [];
+                const allElements = document.querySelectorAll('*');
+                
+                allElements.forEach(el => {
+                    const text = el.textContent.trim();
+                    if (text && text.length > 0 && text.length < 20) {
+                        elements.push({
+                            tag: el.tagName,
+                            text: text,
+                            id: el.id,
+                            className: el.className,
+                            clickable: el.onclick !== null || el.style.cursor === 'pointer'
+                        });
+                    }
+                });
+                
+                return elements.slice(0, 20); // Limit output
+            });
+            
+            console.log('Available page elements:', pageElements);
+            
+            // Try multiple strategies to find and click the button
             const searchButtonClicked = await this.page.evaluate(() => {
-                // Look for the black button with "機種名で探す" text
-                const buttons = document.querySelectorAll('*');
-                for (const button of buttons) {
-                    const text = button.textContent.trim();
-                    if (text === '機種名で探す' || text.includes('機種名')) {
-                        button.click();
-                        return true;
+                // Strategy 1: Exact text match
+                const allElements = document.querySelectorAll('*');
+                for (const element of allElements) {
+                    const text = element.textContent.trim();
+                    if (text === '機種名で探す' && element.offsetWidth > 0 && element.offsetHeight > 0) {
+                        console.log('Found button with exact text match');
+                        element.click();
+                        return { strategy: 'exact', element: element.tagName };
                     }
                 }
+                
+                // Strategy 2: Contains text match
+                for (const element of allElements) {
+                    const text = element.textContent.trim();
+                    if (text.includes('機種名') && text.includes('探す') && element.offsetWidth > 0) {
+                        console.log('Found button with contains match:', text);
+                        element.click();
+                        return { strategy: 'contains', element: element.tagName, text: text };
+                    }
+                }
+                
+                // Strategy 3: Look for clickable elements with machine-related text
+                for (const element of allElements) {
+                    const text = element.textContent.trim();
+                    if ((text.includes('機種') || text.includes('種名')) && 
+                        (element.onclick !== null || element.style.cursor === 'pointer' || 
+                         element.tagName === 'BUTTON' || element.tagName === 'A')) {
+                        console.log('Found clickable machine-related element:', text);
+                        element.click();
+                        return { strategy: 'clickable', element: element.tagName, text: text };
+                    }
+                }
+                
                 return false;
             });
             
             if (searchButtonClicked) {
-                console.log('Successfully clicked search button, waiting for results...');
+                console.log('✅ Search button clicked, waiting for machine list...');
                 await new Promise(resolve => setTimeout(resolve, 5000));
+                await this.page.screenshot({ path: 'after-search-click.png' });
             } else {
-                console.log('Could not find search button, trying alternative approach...');
+                console.log('❌ Could not find search button');
+                return [];
             }
             
-            // Look for machine links after clicking
-            console.log('Searching for machine types...');
-            const machines = await this.searchForMachines();
-            console.log(`Found ${machines.length} machines`);
+            // Step 3: Extract machine list from the results
+            console.log('Step 3: Extracting machine list...');
+            const machines = await this.extractMachineList();
+            console.log(`Found ${machines.length} machines in list`);
+            
+            if (machines.length === 0) {
+                console.log('No machines found, taking screenshot for debugging');
+                await this.page.screenshot({ path: 'no-machines-found.png' });
+                return [];
+            }
             
             const allData = [];
             
-            // Process each machine found
-            for (let i = 0; i < Math.min(machines.length, 10); i++) {
-                console.log(`Processing ${i + 1}/${Math.min(machines.length, 10)}: ${machines[i].name}`);
+            // Step 4: Process each machine
+            for (let i = 0; i < Math.min(machines.length, 5); i++) {
+                console.log(`\nStep 4.${i+1}: Processing machine: ${machines[i].name}`);
                 
                 try {
-                    const machineData = await this.scrapeMachineWithDates(machines[i]);
-                    if (machineData && machineData.length > 0) {
+                    const machineData = await this.processIndividualMachine(machines[i]);
+                    if (machineData && machineData.dates && machineData.dates.length > 0) {
                         allData.push({
                             machineName: machines[i].name,
                             machineUrl: machines[i].url,
-                            data: machineData,
+                            data: machineData.dates,
                             timestamp: new Date().toISOString()
                         });
+                        console.log(`✅ Successfully processed ${machines[i].name} with ${machineData.dates.length} dates`);
+                    } else {
+                        console.log(`❌ No data found for ${machines[i].name}`);
                     }
                 } catch (error) {
                     console.error(`Error processing machine ${machines[i].name}:`, error);
                 }
                 
-                // Add delay to avoid rate limiting
-                await new Promise(resolve => setTimeout(resolve, 2000));
+                // Delay to avoid rate limiting
+                await new Promise(resolve => setTimeout(resolve, 3000));
             }
             
             return allData;
@@ -225,25 +285,42 @@ class PachinkoScraper {
         }
     }
     
-    async searchForMachines() {
+    async extractMachineList() {
         try {
-            // Extract machine links from the current page
             const machines = await this.page.evaluate(() => {
-                const machineData = [];
+                const machineLinks = [];
                 const uniqueUrls = new Set();
                 
-                // Look for links that might be machines
+                // Look for all links on the page
                 const allLinks = document.querySelectorAll('a');
                 allLinks.forEach(link => {
                     const href = link.href;
                     const text = link.textContent.trim();
                     
-                    // Check if this looks like a machine link
+                    // Filter for machine links (usually contain machine names)
                     if (href && text && !uniqueUrls.has(href)) {
-                        // Look for patterns that suggest machine names
-                        if (text.match(/^[PRC][A-Za-z0-9\u3040-\u309F\u30A0-\u30FF\u4E00-\u9FAF\s\-・]+/)) {
+                        // Look for patterns that suggest pachinko machine names
+                        const isPachinkoMachine = (
+                            text.match(/^[PCR][A-Za-z0-9\u3040-\u309F\u30A0-\u30FF\u4E00-\u9FAF\s\-・\u0020]+/) ||
+                            text.includes('パチンコ') ||
+                            text.includes('スロット') ||
+                            (text.length > 5 && text.length < 50)
+                        );
+                        
+                        // Exclude navigation and system links
+                        const isNotNavigation = (
+                            !text.includes('戻る') &&
+                            !text.includes('次へ') &&
+                            !text.includes('前へ') &&
+                            !text.includes('ホール') &&
+                            !text.includes('店舗') &&
+                            !href.includes('javascript:') &&
+                            !href.includes('mailto:')
+                        );
+                        
+                        if (isPachinkoMachine && isNotNavigation) {
                             uniqueUrls.add(href);
-                            machineData.push({
+                            machineLinks.push({
                                 name: text,
                                 url: href
                             });
@@ -251,36 +328,150 @@ class PachinkoScraper {
                     }
                 });
                 
-                return machineData;
+                console.log(`Found ${machineLinks.length} potential machine links`);
+                return machineLinks;
             });
             
             return machines;
         } catch (error) {
-            console.error('Error searching for machines:', error);
+            console.error('Error extracting machine list:', error);
             return [];
         }
     }
     
-    async scrapeMachineWithDates(machine) {
+    async processIndividualMachine(machine) {
         try {
-            console.log(`Navigating to machine: ${machine.name}`);
+            console.log(`  📍 Navigating to: ${machine.name}`);
             await this.page.goto(machine.url, { waitUntil: 'networkidle2' });
             await new Promise(resolve => setTimeout(resolve, 3000));
             
-            // Look for date selection options
-            const dateOptions = await this.page.evaluate(() => {
-                const dates = [];
+            // Take screenshot of machine page
+            await this.page.screenshot({ path: `machine-${machine.name.replace(/[^a-zA-Z0-9]/g, '_')}.png` });
+            
+            // Step 1: Get current date data
+            console.log(`  📊 Extracting current data...`);
+            const currentData = await this.extractMachineData();
+            
+            if (!currentData || currentData.length === 0) {
+                console.log(`  ❌ No current data found for ${machine.name}`);
+                return null;
+            }
+            
+            const allDateData = [{
+                date: new Date().toISOString().split('T')[0],
+                data: currentData
+            }];
+            
+            // Step 2: Look for date navigation options
+            console.log(`  📅 Looking for date options...`);
+            const dateLinks = await this.findDateLinks();
+            
+            console.log(`  Found ${dateLinks.length} date options`);
+            
+            // Step 3: Process historical dates
+            for (let i = 0; i < Math.min(dateLinks.length, 7); i++) {
+                try {
+                    console.log(`  📅 Processing date: ${dateLinks[i].dateText}`);
+                    
+                    // Navigate to historical date
+                    await this.page.goto(dateLinks[i].url, { waitUntil: 'networkidle2' });
+                    await new Promise(resolve => setTimeout(resolve, 2000));
+                    
+                    // Extract data for this date
+                    const dateData = await this.extractMachineData();
+                    
+                    if (dateData && dateData.length > 0) {
+                        allDateData.push({
+                            date: dateLinks[i].dateText,
+                            data: dateData
+                        });
+                        console.log(`  ✅ Got ${dateData.length} units for ${dateLinks[i].dateText}`);
+                    }
+                } catch (error) {
+                    console.error(`  ❌ Error processing date ${dateLinks[i].dateText}:`, error);
+                }
+            }
+            
+            return {
+                dates: allDateData
+            };
+            
+        } catch (error) {
+            console.error(`Error processing individual machine ${machine.name}:`, error);
+            return null;
+        }
+    }
+    
+    async extractMachineData() {
+        try {
+            const data = await this.page.evaluate(() => {
+                const tableData = [];
+                const tables = document.querySelectorAll('table');
                 
-                // Look for date links or selectors
-                const links = document.querySelectorAll('a');
-                links.forEach(link => {
+                tables.forEach(table => {
+                    const rows = table.querySelectorAll('tr');
+                    
+                    rows.forEach(row => {
+                        const cells = row.querySelectorAll('td');
+                        
+                        if (cells.length >= 8) {
+                            const firstCell = cells[0]?.textContent?.trim() || '';
+                            
+                            // Check if this looks like a machine unit row (starts with number)
+                            if (firstCell && /^\d+$/.test(firstCell)) {
+                                const unitData = {
+                                    台番号: cells[0]?.textContent?.trim() || '',
+                                    回転数: cells[1]?.textContent?.trim() || '0',
+                                    累計スタート: cells[2]?.textContent?.trim() || '0',
+                                    総大当り: cells[3]?.textContent?.trim() || '0',
+                                    初当り: cells[4]?.textContent?.trim() || '0',
+                                    確変当り: cells[5]?.textContent?.trim() || '0',
+                                    大当り確率: cells[6]?.textContent?.trim() || '',
+                                    初当り確率: cells[7]?.textContent?.trim() || '',
+                                    最大持ち玉: cells[8]?.textContent?.trim() || '0',
+                                    前日最終スタート: cells[9]?.textContent?.trim() || '0'
+                                };
+                                
+                                tableData.push(unitData);
+                            }
+                        }
+                    });
+                });
+                
+                return tableData;
+            });
+            
+            return data;
+        } catch (error) {
+            console.error('Error extracting machine data:', error);
+            return [];
+        }
+    }
+    
+    async findDateLinks() {
+        try {
+            const dateLinks = await this.page.evaluate(() => {
+                const dates = [];
+                const allLinks = document.querySelectorAll('a');
+                
+                allLinks.forEach(link => {
                     const text = link.textContent.trim();
-                    // Match date patterns like "12/25" or "2024/12/25"
-                    if (text.match(/\d{1,4}[\/\-]\d{1,2}[\/\-]?\d{0,2}/) || 
-                        text.includes('日') || text.includes('今日') || text.includes('昨日')) {
+                    const href = link.href;
+                    
+                    // Look for date patterns
+                    const datePatterns = [
+                        /\d{1,2}\/\d{1,2}/,           // MM/DD format
+                        /\d{4}\/\d{1,2}\/\d{1,2}/,   // YYYY/MM/DD format
+                        /\d{1,2}月\d{1,2}日/,        // Japanese date format
+                        /昨日|今日|一昨日/             // Yesterday, today, day before yesterday
+                    ];
+                    
+                    const isDateLink = datePatterns.some(pattern => pattern.test(text));
+                    
+                    if (isDateLink && href && href !== window.location.href) {
                         dates.push({
-                            date: text,
-                            url: link.href
+                            dateText: text,
+                            url: href
                         });
                     }
                 });
@@ -288,42 +479,9 @@ class PachinkoScraper {
                 return dates;
             });
             
-            console.log(`Found ${dateOptions.length} date options`);
-            
-            // Scrape data for multiple dates
-            const allDateData = [];
-            
-            // Start with current page data
-            const currentData = await this.scrapeMachineDetails(this.page.url());
-            if (currentData.length > 0) {
-                allDateData.push({
-                    date: new Date().toISOString().split('T')[0],
-                    data: currentData
-                });
-            }
-            
-            // Try to get historical data from available dates
-            for (let i = 0; i < Math.min(dateOptions.length, 7); i++) {
-                try {
-                    console.log(`Scraping date: ${dateOptions[i].date}`);
-                    await this.page.goto(dateOptions[i].url, { waitUntil: 'networkidle2' });
-                    await new Promise(resolve => setTimeout(resolve, 2000));
-                    
-                    const dateData = await this.scrapeMachineDetails(this.page.url());
-                    if (dateData.length > 0) {
-                        allDateData.push({
-                            date: dateOptions[i].date,
-                            data: dateData
-                        });
-                    }
-                } catch (error) {
-                    console.error(`Error scraping date ${dateOptions[i].date}:`, error);
-                }
-            }
-            
-            return allDateData;
+            return dateLinks;
         } catch (error) {
-            console.error('Error scraping machine with dates:', error);
+            console.error('Error finding date links:', error);
             return [];
         }
     }
