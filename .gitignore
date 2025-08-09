@@ -6,5 +6,8 @@ npm-debug.log*
 Thumbs.db
 scraper-debug.png
 debug-screenshot.png
+url-analysis-screenshot.png
+url-analysis-report.json
 .vscode/
 .idea/
+nul
