@@ -26,6 +26,7 @@
         <div class="tabs">
             <button class="tab-button active" onclick="switchTab('overview')">概要</button>
             <button class="tab-button" onclick="switchTab('machines')">機種別データ</button>
+            <button class="tab-button" onclick="switchTab('trends')">トレンド分析</button>
             <button class="tab-button" onclick="switchTab('analysis')">詳細分析</button>
         </div>
 
@@ -64,6 +65,58 @@
                 </select>
             </div>
             <div id="machineList" class="machine-list"></div>
+        </div>
+
+        <div id="trends" class="tab-content">
+            <div class="trends-controls">
+                <div class="period-selector">
+                    <label for="datePeriod">表示期間:</label>
+                    <select id="datePeriod" onchange="updateTrendPeriod()">
+                        <option value="7">過去7日</option>
+                        <option value="14">過去14日</option>
+                        <option value="30" selected>過去30日</option>
+                        <option value="60">過去60日</option>
+                    </select>
+                </div>
+                <div class="machine-selector">
+                    <label for="trendMachine">機種選択:</label>
+                    <select id="trendMachine" onchange="updateTrendChart()">
+                        <option value="">全機種</option>
+                    </select>
+                </div>
+                <div class="metric-selector">
+                    <label for="trendMetric">指標:</label>
+                    <select id="trendMetric" onchange="updateTrendChart()">
+                        <option value="totalHits">総大当り</option>
+                        <option value="firstHits">初当り</option>
+                        <option value="spins">回転数</option>
+                        <option value="hitRate">大当り確率</option>
+                    </select>
+                </div>
+            </div>
+            
+            <div class="chart-container">
+                <canvas id="trendChart"></canvas>
+            </div>
+            
+            <div class="trend-stats">
+                <div class="trend-stat-card">
+                    <h4>平均値</h4>
+                    <span id="trendAverage">-</span>
+                </div>
+                <div class="trend-stat-card">
+                    <h4>最大値</h4>
+                    <span id="trendMax">-</span>
+                </div>
+                <div class="trend-stat-card">
+                    <h4>変化率</h4>
+                    <span id="trendChange">-</span>
+                </div>
+                <div class="trend-stat-card">
+                    <h4>トレンド</h4>
+                    <span id="trendDirection">-</span>
+                </div>
+            </div>
         </div>
 
         <div id="analysis" class="tab-content">

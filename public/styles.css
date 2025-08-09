@@ -331,12 +331,99 @@ tbody tr:hover {
     background: rgba(102, 126, 234, 0.05);
 }
 
+.trends-controls {
+    display: flex;
+    gap: 20px;
+    margin-bottom: 30px;
+    flex-wrap: wrap;
+    align-items: end;
+}
+
+.trends-controls > div {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+}
+
+.trends-controls label {
+    font-size: 0.9rem;
+    color: #6c757d;
+    font-weight: 600;
+}
+
+.trends-controls select {
+    padding: 8px 12px;
+    border: 2px solid #e9ecef;
+    border-radius: 6px;
+    font-size: 0.9rem;
+    background: white;
+    min-width: 120px;
+}
+
+.trends-controls select:focus {
+    outline: none;
+    border-color: #667eea;
+}
+
+.trend-stats {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 15px;
+    margin-top: 30px;
+}
+
+.trend-stat-card {
+    background: linear-gradient(135deg, rgba(102, 126, 234, 0.1) 0%, rgba(118, 75, 162, 0.1) 100%);
+    padding: 20px;
+    border-radius: 10px;
+    text-align: center;
+    border: 1px solid rgba(102, 126, 234, 0.2);
+}
+
+.trend-stat-card h4 {
+    margin: 0 0 10px 0;
+    color: #667eea;
+    font-size: 0.9rem;
+    font-weight: 600;
+}
+
+.trend-stat-card span {
+    font-size: 1.5rem;
+    font-weight: bold;
+    color: #333;
+}
+
+.trend-direction-up {
+    color: #28a745 !important;
+}
+
+.trend-direction-down {
+    color: #dc3545 !important;
+}
+
+.trend-direction-stable {
+    color: #ffc107 !important;
+}
+
 @media (max-width: 768px) {
     .analysis-grid {
         grid-template-columns: 1fr;
     }
     
     .stats-grid {
+        grid-template-columns: 1fr;
+    }
+    
+    .trends-controls {
+        flex-direction: column;
+        gap: 15px;
+    }
+    
+    .trends-controls > div {
+        width: 100%;
+    }
+    
+    .trend-stats {
         grid-template-columns: 1fr;
     }
     
