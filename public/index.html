@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pachinko Machine Analyzer Dashboard</title>
+    <link rel="stylesheet" href="styles.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>パチンコ機種分析ダッシュボード</h1>
+            <div class="header-controls">
+                <button id="refreshBtn" onclick="fetchData()">データ更新</button>
+                <button id="scrapeBtn" onclick="scrapeNewData()">新規スクレイピング</button>
+                <span id="lastUpdated"></span>
+            </div>
+        </header>
+
+        <div class="status-bar">
+            <div id="statusMessage"></div>
+            <div id="loadingSpinner" class="spinner hidden"></div>
+        </div>
+
+        <div class="tabs">
+            <button class="tab-button active" onclick="switchTab('overview')">概要</button>
+            <button class="tab-button" onclick="switchTab('machines')">機種別データ</button>
+            <button class="tab-button" onclick="switchTab('analysis')">詳細分析</button>
+        </div>
+
+        <div id="overview" class="tab-content active">
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <h3>総機種数</h3>
+                    <p id="totalMachines" class="stat-value">-</p>
+                </div>
+                <div class="stat-card">
+                    <h3>総台数</h3>
+                    <p id="totalUnits" class="stat-value">-</p>
+                </div>
+                <div class="stat-card">
+                    <h3>総大当り回数</h3>
+                    <p id="totalHits" class="stat-value">-</p>
+                </div>
+                <div class="stat-card">
+                    <h3>平均大当り確率</h3>
+                    <p id="avgHitRate" class="stat-value">-</p>
+                </div>
+            </div>
+            
+            <div class="chart-container">
+                <canvas id="overviewChart"></canvas>
+            </div>
+        </div>
+
+        <div id="machines" class="tab-content">
+            <div class="machine-filter">
+                <input type="text" id="machineSearch" placeholder="機種名で検索..." onkeyup="filterMachines()">
+                <select id="sortBy" onchange="sortMachines()">
+                    <option value="name">機種名順</option>
+                    <option value="hits">大当り回数順</option>
+                    <option value="rate">大当り確率順</option>
+                </select>
+            </div>
+            <div id="machineList" class="machine-list"></div>
+        </div>
+
+        <div id="analysis" class="tab-content">
+            <div class="analysis-grid">
+                <div class="analysis-section">
+                    <h3>トップパフォーマンス台</h3>
+                    <div id="topPerformers"></div>
+                </div>
+                <div class="analysis-section">
+                    <h3>機種別統計</h3>
+                    <canvas id="machineComparisonChart"></canvas>
+                </div>
+            </div>
+            <div class="analysis-section full-width">
+                <h3>詳細データテーブル</h3>
+                <div id="detailTable"></div>
+            </div>
+        </div>
+    </div>
+
+    <script src="dashboard.js"></script>
+</body>
+</html>
